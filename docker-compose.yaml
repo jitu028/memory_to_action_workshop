@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  payment-api:
+    image: python:3.10-slim
+    container_name: payment-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./services/payment_api:/app
+    working_dir: /app
+    command: sh -c "pip install fastapi uvicorn httpx && uvicorn app:app --host 0.0.0.0 --port 8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  order-api:
+    image: python:3.10-slim
+    container_name: order-api
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./services/order_api:/app
+    working_dir: /app
+    command: sh -c "pip install fastapi uvicorn && uvicorn app:app --host 0.0.0.0 --port 8001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_ANONYMOUS_ORG_NAME=Main Org.
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
